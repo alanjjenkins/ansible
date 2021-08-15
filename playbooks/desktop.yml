@@ -139,21 +139,21 @@
         become: true
         local_action: command ufw default deny
 
-        - name: Install connman
-          package:
-            name: '{{ item }}'
-            state: present
-          with_items:
-            - connman
-          when: use_connman is defined
+      - name: Install connman
+        package:
+          name: '{{ item }}'
+          state: present
+        with_items:
+          - connman
+        when: use_connman is defined
 
-        - name: Create connman config dir
-          file:
-            path: /etc/connman
-            state: directory
-            owner: root
-            group: root
-          when: use_connman is defined
+      - name: Create connman config dir
+        file:
+          path: /etc/connman
+          state: directory
+          owner: root
+          group: root
+        when: use_connman is defined
 
       - name: Configure connman
         template:
@@ -165,105 +165,114 @@
         notify: Restart connman
         when: use_connman is defined
 
-        - name: Enable connman
-          service:
-            name: connman
-            enabled: true
-          when: use_connman is defined
+      - name: Enable connman
+        service:
+          name: connman
+          enabled: true
+        when: use_connman is defined
 
-        - name: Install NetworkManager
-          aur:
-            name: '{{ item }}'
-            skip_installed: true
-          become: yes
-          become_user: aur_builder
-          with_items:
-            - network-manager-sstp
-            - networkmanager
-            - networkmanager-openconnect
-            - networkmanager-openvpn
-            - networkmanager-pptp
-            - networkmanager-vpnc
-            - nm-connection-editor
-            - network-manager-applet
-          when: use_network_manager is defined
+      - name: Install NetworkManager
+        aur:
+          name: '{{ item }}'
+          skip_installed: true
+        become: yes
+        become_user: aur_builder
+        with_items:
+          - network-manager-sstp
+          - networkmanager
+          - networkmanager-openconnect
+          - networkmanager-openvpn
+          - networkmanager-pptp
+          - networkmanager-vpnc
+          - nm-connection-editor
+          - network-manager-applet
+        when: use_network_manager is defined
 
-        - name: Enable network manager
-          service:
-            name: NetworkManager
-            enabled: true
-          when: use_network_manager is defined
+      - name: Enable network manager
+        service:
+          name: NetworkManager
+          enabled: true
+        when: use_network_manager is defined
 
-        - name: Generate initial pkgfile db
-          command: /usr/bin/pkgfile -u
-          args:
-            creates: /var/cache/pkgfile/core.files
-        - name: Create systemd-timer for updating pkfile db once per day
-          block:
-            - name: Create pkgfile update cron timer
-              copy:
-                dest: /etc/systemd/system/pkgfile_update_cron.timer
-                content: |
-                  [Unit]
-                  Description=Update pkgfile db daily at 1500
+      - name: Generate initial pkgfile db
+        command: /usr/bin/pkgfile -u
+        args:
+          creates: /var/cache/pkgfile/core.files
+      - name: Create systemd-timer for updating pkfile db once per day
+        block:
+          - name: Create pkgfile update cron timer
+            copy:
+              dest: /etc/systemd/system/pkgfile_update_cron.timer
+              content: |
+                [Unit]
+                Description=Update pkgfile db daily at 1500
 
-                  [Timer]
-                  OnCalendar=*:15
-                  Persistent=true
+                [Timer]
+                OnCalendar=*:15
+                Persistent=true
 
-                  [Install]
-                  WantedBy=timers.target
-            - name: Create pkgfile update cron service
-              copy:
-                dest: /etc/systemd/system/pkgfile_update_cron.service
-                content: |
-                  [Unit]
-                  Description=Update pkgfile daily at 1500
+                [Install]
+                WantedBy=timers.target
+          - name: Create pkgfile update cron service
+            copy:
+              dest: /etc/systemd/system/pkgfile_update_cron.service
+              content: |
+                [Unit]
+                Description=Update pkgfile daily at 1500
 
-                  [Timer]
-                  OnCalendar=*:15
+                [Timer]
+                OnCalendar=*:15
 
-                  [Install]
-                  WantedBy=timers.target
-        - name: Setup NTP
-          block:
-            - name: Set timezone
-              command: timedatectl set-timezone Europe/London
-              args:
-                creates: /etc/localtime
-              notify: reload systemd-timesyncd
-            - name: NTP config
-              lineinfile:
-                path: /etc/systemd/timesyncd.conf
-                state: present
-                line: 'NTP=0.arch.pool.ntp.org 1.arch.pool.ntp.org 2.arch.pool.ntp.org 3.arch.pool.ntp.org'
-                regexp: '^NTP='
-              notify: reload systemd-timesyncd
-            - name: NTP config fallback
-              lineinfile:
-                path: /etc/systemd/timesyncd.conf
-                state: present
-                line: 'FallbackNTP=0.pool.ntp.org 1.pool.ntp.org 0.fr.pool.ntp.org'
-                regexp: '^FallbackNTP='
-              notify: reload systemd-timesyncd
-            - name: NTP initial sync
-              shell: "if ! /usr/bin/timedatectl status | /usr/bin/grep 'NTP synchronized: yes'; then /usr/bin/timedatectl set-ntp true; fi"
-        - user:
-            name: 'alan'
-            comment: 'Alan Jenkins'
-            groups: docker,sys,wheel,audio
-            append: yes
-        - name: Install connman aur packages
-          aur:
-            name: '{{ item }}'
-            skip_installed: true
-          become: yes
-          become_user: aur_builder
-          with_items:
-            - connman-gtk
-            - connman-ncurses
-            - connman_dmenu-git
-          when: use_connman is defined
+                [Install]
+                WantedBy=timers.target
+
+      - name: Setup NTP
+        block:
+          - name: Set timezone
+            command: timedatectl set-timezone Europe/London
+            args:
+              creates: /etc/localtime
+            notify: reload systemd-timesyncd
+          - name: NTP config
+            lineinfile:
+              path: /etc/systemd/timesyncd.conf
+              state: present
+              line: 'NTP=0.arch.pool.ntp.org 1.arch.pool.ntp.org 2.arch.pool.ntp.org 3.arch.pool.ntp.org'
+              regexp: '^NTP='
+            notify: reload systemd-timesyncd
+          - name: NTP config fallback
+            lineinfile:
+              path: /etc/systemd/timesyncd.conf
+              state: present
+              line: 'FallbackNTP=0.pool.ntp.org 1.pool.ntp.org 0.fr.pool.ntp.org'
+              regexp: '^FallbackNTP='
+            notify: reload systemd-timesyncd
+          - name: NTP initial sync
+            shell: "if ! /usr/bin/timedatectl status | /usr/bin/grep 'NTP synchronized: yes'; then /usr/bin/timedatectl set-ntp true; fi"
+
+      - user:
+          name: 'alan'
+          comment: 'Alan Jenkins'
+          groups: docker,sys,wheel,audio
+          append: yes
+
+      - user:
+          name: 'dave'
+          comment: 'David Norris'
+          groups: docker,sys,wheel,audio
+          append: yes
+
+      - name: Install connman aur packages
+        aur:
+          name: '{{ item }}'
+          skip_installed: true
+        become: yes
+        become_user: aur_builder
+        with_items:
+          - connman-gtk
+          - connman-ncurses
+          - connman_dmenu-git
+        when: use_connman is defined
 
       - name: Setup desktop packages
         tags: install_packages
@@ -514,10 +523,10 @@
       group: root
       mode: 0644
 
-    - name: Enable rngd
-      service:
-        name: rngd
-        enabled: true
+  - name: Enable rngd
+    service:
+      name: rngd
+      enabled: true
 
     # - name: Set nvidia TDP - Create timer
     #   template:
