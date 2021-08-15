@@ -60,10 +60,10 @@
         package:
           name: aria2
           state: present
-      # - name: ensure ccache is installed
-      #   package:
-      #     name: ccache
-      #     state: present
+      - name: ensure ccache is installed
+        package:
+          name: ccache
+          state: present
       - name: Enable Arch multilib repo
         block:
           - blockinfile:
