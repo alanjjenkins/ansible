@@ -1,0 +1,1 @@
+@wheel host = (root) NOPASSWD: /usr/bin/systemctl suspend, /usr/bin/systemctl shutdown, /usr/bin/systemctl hibernate, /usr/bin/systemctl reboot
