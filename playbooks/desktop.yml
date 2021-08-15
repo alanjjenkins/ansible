@@ -76,7 +76,6 @@
   - name: ensure the 'yay' aur helper is installed
     aur:
       name: yay
-      skip_installed: true
       use: makepkg
     become: yes
     become_user: aur_builder
@@ -174,7 +173,6 @@
       - name: Install NetworkManager
         aur:
           name: '{{ item }}'
-          skip_installed: true
         become: yes
         become_user: aur_builder
         with_items:
@@ -265,7 +263,6 @@
       - name: Install connman aur packages
         aur:
           name: '{{ item }}'
-          skip_installed: true
         become: yes
         become_user: aur_builder
         with_items:
@@ -278,7 +275,6 @@
         tags: install_packages
         aur:
           name: "{{ item }}"
-          skip_installed: true
         with_items:
         # - cloud-print-connector-git
         # - howdy
