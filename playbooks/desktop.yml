@@ -26,12 +26,12 @@
           state: present
           line: "PKGEXT='.pkg.tar.zst'"
           regexp: "^PKGEXT="
-      - name: set C compiler flags
-        lineinfile:
-          path: /etc/makepkg.conf
-          state: present
-          line: 'CFLAGS="-march=native -O2 -pipe -fstack-protector-strong"'
-          regexp: '^CFLAGS='
+      # - name: set C compiler flags
+      #   lineinfile:
+      #     path: /etc/makepkg.conf
+      #     state: present
+      #     line: 'CFLAGS="-march=native -O2 -pipe -fstack-protector-strong"'
+      #     regexp: '^CFLAGS='
       - name: set C++ compiler flags
         lineinfile:
           path: /etc/makepkg.conf
