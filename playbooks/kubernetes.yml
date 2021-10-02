@@ -6,7 +6,7 @@
   gather_facts: no
   tasks:
     - name: Fully update system and install Python
-      raw: echo "root" | su root -c "pacman -Syu python --noconfirm"
+      raw: echo "root" | su root -c "pacman -Syu python htop --noconfirm"
       args:
         executable: /bin/sh
 
@@ -66,20 +66,21 @@
         name: alarm
         state: absent
         remove: yes
+    - name: Set hostname
+      remote_user: alan
+      become: yes
+      become_method: sudo
+      hostname:
+        name: "{{ inventory_hostname }}"
+    - name: Populate /etc/hosts
+      remote_user: alan
+      become: yes
+      become_method: sudo
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ ansible_facts['eth0']['ipv4']['address'] }}       {{ inventory_hostname }}"
     - name: Reboot
       become: yes
       become_method: sudo
       remote_user: alan
       reboot:
-
-- hosts: kubernetes
-  tags: [never, install]
-  become: yes
-  tasks:
-    - name: Set hostname
-      hostname:
-        name: "{{ inventory_hostname }}"
-    - name: Populate /etc/hosts
-      lineinfile:
-        path: /etc/hosts
-        line: "{{ ansible_facts['eth0']['ipv4']['address'] }}       {{ inventory_hostname }}"
