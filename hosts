@@ -1,9 +1,5 @@
 all:
   hosts:
-    router:
-      ansible_host: 192.168.1.1
-      ansible_user: alan
-
     retropie:
       ansible_host: 192.168.1.15
       ansible_user: pi
@@ -99,26 +95,21 @@ all:
         - fsck
       use_network_manager: true
 
-    # k8s-master-01:
-    #   ansible_host: 192.168.1.80
-
-    # k8s-worker-01:
-    #   ansible_host: 192.168.1.81
-
-    # k8s-worker-02:
-    #   ansible_host: 192.168.1.82
-
-    # k8s-worker-03:
-    #   ansible_host: 192.168.1.83
     piserver:
       ansible_host: 192.168.86.113
 
     k8s-master-01:
-      ansible_host: 192.168.86.80
+      ansible_host: 192.168.8.2
+
+    k8s-master-02:
+      ansible_host: 192.168.8.3
+
     k8s-worker-01:
-      ansible_host: 192.168.86.82
+      ansible_host: 192.168.8.20
+
     printserver:
       ansible_host: 192.168.86.54
+
   children:
     router:
       hosts:
@@ -138,6 +129,7 @@ all:
     kubernetes:
       hosts:
         k8s-master-01:
+        k8s-master-02:
         k8s-worker-01:
       vars:
         ansible_password: raspberry
@@ -146,6 +138,7 @@ all:
     kubernetes_masters:
       hosts:
         k8s-master-01:
+        k8s-master-02:
 
     kubernetes_workers:
       hosts:

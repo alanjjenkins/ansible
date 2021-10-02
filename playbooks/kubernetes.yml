@@ -1,75 +1,25 @@
 ---
 
-- hosts: kubernetes_workers
-  become: yes
-  tags: [ never, reset ]
-  tasks:
-    - name: Reset kubernetees
-      shell: |
-        kubeadm reset -f
-        weave reset
-        rm -f /opt/cni/bin/weave-*
-        ip link del cni0
-        ip link del flannel.1
-        ip link del weave
-        iptables -F
-        iptables -t nat -F
-        iptables -t mangle -F
-        iptables -X
-        ipvsadm -C
-        systemctl restart networking
-    - name: Uninstall kubernetes
-      apt:
-        name: ['kubeadm', 'kubelet', 'kubectl']
-        state: absent
-        purge: yes
-    - name: Delete kubernetes configs
-      file:
-        state: absent
-        path: /etc/kubernetes
-    - name: Delete WeaveNet password file
-      file:
-        state: absent
-        path: /var/lib/weave/weave-passwd
-
-- hosts: kubernetes_masters
-  become: yes
-  tags: [ never, reset ]
-  tasks:
-    - name: Reset kubernetees
-      shell: |
-        kubeadm reset -f
-        weave reset
-        rm -f /opt/cni/bin/weave-*
-        ip link del cni0
-        ip link del flannel.1
-        iptables -F
-        iptables -t nat -F
-        iptables -t mangle -F
-        iptables -X
-        ipvsadm -C
-        systemctl restart networking
-    - name: Uninstall kubernetes
-      apt:
-        name: ['kubeadm', 'kubelet', 'kubectl']
-        state: absent
-        purge: yes
-    - name: Delete kubernetes configs
-      file:
-        state: absent
-        path: /etc/kubernetes
-
 - hosts: kubernetes
-  tags: [ never, reboot ]
-  become: yes
+  tags: [ never, init ]
+  remote_user: alarm
+  gather_facts: no
   tasks:
-    - reboot:
+    - name: Fully update system and install Python
+      raw: echo "root" | su root -c "pacman -Syu python --noconfirm"
+      args:
+        executable: /bin/sh
 
 - hosts: kubernetes
   tags: [ never, init ]
-  remote_user: pi
+  remote_user: alarm
   become: yes
+  become_method: su
   tasks:
+    - name: Ensure that sudo is installed
+      package:
+        name: sudo
+        state: present
     - name: Setup passwordless sudo for my user
       lineinfile:
         path: /etc/sudoers.d/10-alan-nopasswd
@@ -82,44 +32,43 @@
         state: present
         append: yes
         groups:
-          - adm
           - audio
-          - cdrom
-          - dialout
-          - games
-          - gpio
-          - i2c
           - input
-          - netdev
-          - plugdev
-          - spi
-          - sudo
-          - users
+          - lp
+          - optical
+          - sys
           - video
+          - wheel
     - name: Add SSH key to my user
       authorized_key:
         user: alan
         state: present
         key: "{{ lookup('file', '/home/alan/git/ssh_keys/id_personal.pub') }}"
-    - name: Get root PARTUUID
-      shell: cat /proc/cmdline | sed 's/ /\n/g' | grep 'root='
-      args:
-        executable: /bin/bash
-      changed_when: False
-      ignore_errors: no
-      register: rootuuid
-    - name: Configure kernel params for groups
-      copy: content="console=serial0,115200 console=tty1 {{ rootuuid.stdout }} rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory" dest=/boot/cmdline.txt
-    - name: Kill Pis running processes
+    # - name: Get root PARTUUID
+    #   shell: cat /proc/cmdline | sed 's/ /\n/g' | grep 'root='
+    #   args:
+    #     executable: /bin/bash
+    #   changed_when: False
+    #   ignore_errors: no
+    #   register: rootuuid
+    # - name: Configure kernel params for groups
+    #   copy: content="console=serial0,115200 console=tty1 {{ rootuuid.stdout }} rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory" dest=/boot/cmdline.txt
+    - name: Kill all of alarm user's processes
       remote_user: alan
-      shell: kill -9 $(ps -eo pid,user,comm | awk '/pi/ { print $1; }')
-    - name: Remove Pi user
+      become: yes
+      become_method: sudo
+      shell: pkill -u alarm
+    - name: Remove alarm user
       remote_user: alan
+      become: yes
+      become_method: sudo
       user:
-        name: pi
+        name: alarm
         state: absent
         remove: yes
     - name: Reboot
+      become: yes
+      become_method: sudo
       remote_user: alan
       reboot:
 
@@ -127,228 +76,10 @@
   tags: [never, install]
   become: yes
   tasks:
-    - name: Add Docker repo apt-key
-      apt_key:
-        url: https://download.docker.com/linux/raspbian/gpg
-        state: present
-    - name: Install docker repo
-      apt_repository:
-        repo: deb https://download.docker.com/linux/raspbian buster stable
-        state: present
-    - name: Ensure kubernetes dependencies are installed
-      package:
-        name: "{{ item }}"
-        state: present
-      with_items:
-        - aptitude
-        - arptables
-        - docker.io
-        - ebtables
-        - ethtool
-        - iproute2
-        - iptables
-        - ipvsadm
-        - python-pip
-        - python3-pip
-        - runc
-        - socat
-    - name: Add kubernetes repo apt-key
-      apt_key:
-        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-        state: present
-    - name: Ensure kubernetes repo is setup
-      apt_repository:
-        repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
-        state: present
-    - name: Install kubernetes components
-      apt:
-        name: [
-          'kubeadm',
-          'kubelet',
-          'kubectl'
-        ]
-        state: present
-        update_cache: yes
-    - name: Check if swap enabled
-      shell: test "$(swapon -s | wc -l)" -gt "1"
-      args:
-        executable: /bin/bash
-      changed_when: False
-      ignore_errors: yes
-      register: swap_enabled
-    - name: Disable swap
-      shell: |
-        dphys-swapfile swapoff
-        dphys-swapfile uninstall
-      when: swap_enabled.rc == 0
-    - name: Ensure dphys-swapfile disabled
-      service:
-        name: dphys-swapfile
-        enabled: no
-        state: stopped
     - name: Set hostname
       hostname:
         name: "{{ inventory_hostname }}"
-    - name: Configure docker to use systemd cgroup driver
-      template:
-        src: /etc/ansible/templates/docker/docker-daemon-kubernetes.json
-        dest: /etc/docker/daemon.json
     - name: Populate /etc/hosts
       lineinfile:
         path: /etc/hosts
         line: "{{ ansible_facts['eth0']['ipv4']['address'] }}       {{ inventory_hostname }}"
-    - name: Docker service started and enabled
-      service:
-        name: docker
-        state: restarted
-        enabled: yes
-    - name: Enable netfilter on bridges
-      block:
-        - sysctl:
-            name: net.bridge.bridge-nf-call-ip6tables
-            value: '1'
-        - sysctl:
-            name: net.bridge.bridge-nf-call-iptables
-            value: '1'
-        - sysctl:
-            name: net.bridge.bridge-nf-call-arptables
-            value: '1'
-    - name: Ensure legacy iptables backends are in use
-      block:
-        - command: update-alternatives --set iptables /usr/sbin/iptables-legacy
-        - command: update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
-        - command: update-alternatives --set arptables /usr/sbin/arptables-legacy
-        - command: update-alternatives --set ebtables /usr/sbin/ebtables-legacy
-    - name: Install unbound
-      apt:
-        name: unbound
-        state: absent
-    - name: resolvconf
-      lineinfile:
-        path: /etc/resolv.conf
-        line: 'nameserver 192.168.86.1'
-    - name: Pip3 dependencies
-      pip:
-        name:  ['openshift', 'kubernetes-validate']
-        executable: pip3
-    - name: Pip2 dependencies
-      pip:
-        name:  ['openshift', 'kubernetes-validate']
-        executable: pip2
-
-- hosts: kubernetes_masters
-  tags: [never, master-install]
-  become: yes
-  tasks:
-    # - name: Pull kubernetes containers
-    #   command: kubeadm config images pull -v3
-    - name: Configure docker to use systemd cgroup driver
-      template:
-        src: /etc/ansible/templates/kubernetes/kubeadm-init-master-config.yml
-        dest: /etc/kubernetes/kubeadm-config.yml
-    - name: Initialise Kubernetes master
-      command: kubeadm init --config /etc/kubernetes/kubeadm-config.yml
-      args:
-        creates: /var/lib/kubelet/config.yaml
-    - name: Wait for kubelet to start
-      pause:
-        seconds: 30
-    - name: Setup kubeconfig
-      become: no
-      changed_when: False
-      shell: |
-        mkdir -p $HOME/.kube
-        sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
-        sudo chown $(id -u):$(id -g) $HOME/.kube/config
-        sudo mkdir /root/.kube
-        sudo cp /etc/kubernetes/admin.conf /root/.kube/config
-    - name: Copy admin config to local system
-      fetch:
-        src: /etc/kubernetes/admin.conf
-        dest: /home/alan/.kube/home
-        flat: yes
-
-- hosts: kubernetes_masters
-  tags: [never, cni]
-  become: yes
-  tasks:
-    - name: Setup Weave Net
-      block:
-        - name: Get Kubernetes version hash
-          shell: kubectl version | base64 | tr -d '\n'
-          args:
-            executable: /bin/bash
-          changed_when: False
-          register: kubernetes_version_hash
-        - name: Check if weavenet password already exists
-          shell: test -f /var/lib/weave/weave-passwd
-          args:
-            executable: /bin/bash
-          register: weave_password_exists
-          changed_when: False
-          ignore_errors: True
-        - name: Install pwgen
-          apt:
-            name: "pwgen"
-            state: present
-          when: weave_password_exists.rc == 1
-        - name: Create Weave directory
-          file:
-            state: directory
-            path: /var/lib/weave
-        - name: Generate WeaveNet password
-          shell: pwgen -y 20
-          changed_when: False
-          register: weavenet_password
-          when: weave_password_exists.rc == 1
-        - name: Create Weave password file
-          copy:
-            content: "{{ weavenet_password.stdout }}"
-            dest: /var/lib/weave/weave-passwd
-          when: weave_password_exists.rc == 1
-        - name: Create weave-passwd secret
-          shell: "kubectl create secret -n kube-system generic weave-passwd --kubeconfig=/etc/kubernetes/admin.conf --from-file=/var/lib/weave/weave-passwd"
-          args:
-            executable: /bin/bash
-          when: weave_password_exists.rc == 1
-        - name: Get WeaveNet manifest
-          local_action:
-            module: get_url
-            url: "https://cloud.weave.works/k8s/net?k8s-version={{ kubernetes_version_hash.stdout }}&password-secret=weave-passwd"
-            dest: /tmp/weave-net.yaml
-        - name: Install WeaveNet Manifest
-          k8s:
-            state: present
-            definition: "{{lookup('file', '/tmp/weave-net.yaml')}}"
-            kubeconfig: /etc/kubernetes/admin.conf
-            validate:
-              fail_on_error: yes
-              strict: yes
-
-- hosts: kubernetes_masters
-  become: yes
-  tasks:
-    - name: Get k8s join command
-      shell: kubeadm token create --print-join-command
-      changed_when: False
-      register: k8s_join_command
-
-- hosts: kubernetes_workers
-  become: yes
-  tasks:
-    - name: Check if node has joined
-      shell: test -f /etc/kubernetes/kubelet.conf
-      ignore_errors: yes
-      register: node_joined
-    - name: Join cluster
-      shell: "{{ hostvars['k8s-master-01']['k8s_join_command']['stdout'] }}"
-      when: node_joined.rc == 1
-
-- hosts: kubernetes
-  become: yes
-  tasks:
-    - name: Ensure kubelet is enabled
-      service:
-        name: kubelet
-        enabled: yes
-        state: started
