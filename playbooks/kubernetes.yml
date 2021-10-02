@@ -6,7 +6,7 @@
   gather_facts: no
   tasks:
     - name: Fully update system and install Python
-      raw: echo "root" | su root -c "pacman -Syu python htop --noconfirm"
+      raw: echo "root" | su root -c "pacman -Syu python htop neovim --noconfirm"
       args:
         executable: /bin/sh
 
@@ -20,6 +20,10 @@
       package:
         name: sudo
         state: present
+    - name: Ensure systemd-timesyncd is enabled
+      service:
+        name: systemd-timesyncd
+        enabled: true
     - name: Setup passwordless sudo for my user
       lineinfile:
         path: /etc/sudoers.d/10-alan-nopasswd
