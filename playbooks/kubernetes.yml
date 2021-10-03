@@ -6,7 +6,7 @@
   gather_facts: no
   tasks:
     - name: Fully update system and install Python
-      raw: echo "root" | su root -c "pacman -Syu python htop neovim --noconfirm"
+      raw: echo "root" | su root -c "pacman -Syu python htop neovim inetutils --noconfirm"
       args:
         executable: /bin/sh
 
