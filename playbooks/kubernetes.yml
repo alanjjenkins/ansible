@@ -80,9 +80,19 @@
       remote_user: alan
       become: yes
       become_method: sudo
-      lineinfile:
-        path: /etc/hosts
-        line: "{{ ansible_facts['eth0']['ipv4']['address'] }}       {{ inventory_hostname }}"
+      block:
+        - name: localhost ipv4
+          lineinfile:
+            path: /etc/hosts
+            line: "127.0.0.1"
+        - name: localhost ipv6
+          lineinfile:
+            path: /etc/hosts
+            line: "localhost ::1"
+        - name: hostname entry
+          lineinfile:
+            path: /etc/hosts
+            line: "{{ ansible_all_ipv4_addresses[0] }}       {{ inventory_hostname }}"
     - name: Reboot
       become: yes
       become_method: sudo
