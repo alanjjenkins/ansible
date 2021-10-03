@@ -62,6 +62,7 @@
       become: yes
       become_method: sudo
       shell: pkill -u alarm
+      ignore_errors: yes
     - name: Remove alarm user
       remote_user: alan
       become: yes
